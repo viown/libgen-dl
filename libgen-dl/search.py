@@ -1,4 +1,5 @@
 import requests
+import book
 from urllib.parse import urlparse, parse_qs
 from bs4 import BeautifulSoup
 
@@ -44,6 +45,7 @@ class SearchRequest:
 
         table = table.find("tbody")
 
+
         for result in table.findAll("tr"):
             result_info = result.findAll("td")
             title_section = result_info[0].findAll("a", recursive=False)
@@ -55,25 +57,26 @@ class SearchRequest:
             else:
                 isbn = None
 
-            resultData = {
-                "id": parse_qs(urlparse(url).query)["id"][0],
-                "title": title_section[0].text.strip(),
-                "isbn": isbn,
-                "authors": result_info[1].text.strip(),
-                "publisher": result_info[2].text,
-                "year": result_info[3].text if result_info[3].text != "" else None,
-                "lang": result_info[4].text,
-                "pages": result_info[5].text if result_info[5].text != "0" else None,
-                "size": self.convert_size_string_to_mb(result_info[6].text),
-                "ext": result_info[7].text
-            }
+
+            item = book.Book(edition_id=parse_qs(urlparse(url).query)["id"][0],
+                        title=title_section[0].text.strip(),
+                        author=result_info[1].text.strip(),
+                        publisher=result_info[2].text,
+                        isbn=isbn,
+                        year=result_info[3].text if result_info[3].text != "" else None,
+                        lang=result_info[4].text,
+                        pages=result_info[5].text if result_info[5].text != "0" else None,
+                        size=self.convert_size_string_to_mb(result_info[6].text),
+                        format=result_info[7].text,
+                        mirrors=[mirror.get("href") for mirror in result_info[8].findAll("a")]
+                        )
 
             if self.ext:
-                if resultData["ext"].lower() != self.ext.lower():
+                if item.format != self.ext.lower():
                     continue
             if self.language:
-                if resultData["lang"].lower() != self.language.lower():
+                if item.lang != self.language.lower():
                     continue
 
-            results.append(resultData)
+            results.append(item)
         return results
