@@ -4,6 +4,7 @@ import requests
 from tabulate import tabulate
 from book import get_book_from_id, get_book_from_md5
 from search import SearchRequest
+from exceptions import GatewayDownloadFail, FileNotFound
 
 __version__ = "0.10.1"
 
@@ -23,7 +24,14 @@ def download(arg_list, gateway_list, path, download_cover, create_metadata):
     for argument in arg_list:
         book = get_book_from_argument(argument)
         if book:
-            book.download_with_retry(path=path, gateway_list=gateway_list, output=True)
+            try:
+                book.download_with_retry(path=path, gateway_list=gateway_list, output=True)
+            except requests.exceptions.HTTPError:
+                print("An HTTP error occured while downloading. Try again with a different --gateway.")
+            except FileNotFound:
+                print(f"File \"{book.title}\" could not be found from mirror (returned 404). Try specifying a different --gateway.")
+            except GatewayDownloadFail:
+                print("Download failed from all specified gateways.")
 
 def main():
     parser = argparse.ArgumentParser(prog='libgen-dl', description='Content downloader for libgen.')
@@ -94,6 +102,10 @@ def main():
                     result.download_with_retry(path=args.path, gateway_list=args.gateway, output=True)
                 except requests.exceptions.HTTPError:
                     print(f"An error occured while downloading {result.title}. Skipped.")
+                except FileNotFound:
+                    print(f"File \"{result.title}\" could not be found from mirror. Try specifying a different --gateway. Skipped.")
+                except GatewayDownloadFail:
+                    print("Gateway download failed. Skipped.")
     
     elif args.info:
         book = get_book_from_argument(args.info)

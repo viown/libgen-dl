@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs, unquote
-from exceptions import DownloadLinkNotFound, ChecksumMismatch, GatewayDownloadFail
+from exceptions import DownloadLinkNotFound, ChecksumMismatch, GatewayDownloadFail, FileNotFound
 import requests
 import hashlib
 import search
@@ -99,6 +99,8 @@ class Book:
                 return links["get"]
             else:
                 return links[gateway]
+        elif r.status_code == 404:
+            raise FileNotFound(f"File could not be found through mirror {mirror}")
 
 
 
@@ -164,7 +166,7 @@ class Book:
                 downloadCompleted = True
             except requests.exceptions.Timeout:
                 if output:
-                    print(f"Gateway {gateway_list[gateway]} timed out. Retrying with another gateway.")
+                    print(f"Gateway {gateway_list[gateway]} failed. Retrying with another gateway.")
                 gateway += 1
                 if (gateway + 1) > len(gateway_list):
                     raise GatewayDownloadFail("All specified gateways failed to respond")

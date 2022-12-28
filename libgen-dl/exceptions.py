@@ -6,3 +6,6 @@ class ChecksumMismatch(BaseException):
 
 class GatewayDownloadFail(BaseException):
     pass
+
+class FileNotFound(BaseException):
+    pass
