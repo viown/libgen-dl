@@ -49,8 +49,8 @@ For example, to download all fictional books that are in english and in epub for
 
     python libgen-dl.py --download-all --topic fiction --language English --ext epub -db content.db -p data
 When `-db` is specified, libgen-dl will create an SQLite database containing information about every downloaded book. Specifying `-db` is optional, but highly recommended as it'll allow you to sync new books later on using the `--sync` option, as well as allow you to safely `CTRL+C` the download operation and resume it later by running the same command.
-At least one topic has to be specified for `--download-all` to work.
-Check https://libgen.lc/stat.php to see the size of each topic.
+
+At least one topic has to be specified for `--download-all` to work. Check https://libgen.lc/stat.php to see the size of each topic.
 # Sync
 If you've previously used `--download-all` to download a copy of libgen, you can use `--sync` to keep it up to date. Simply point `--sync` to the database file to start syncing.
 

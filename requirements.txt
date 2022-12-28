@@ -1,2 +1,3 @@
 tabulate
 beautifulsoup4
+pyrfc6266
