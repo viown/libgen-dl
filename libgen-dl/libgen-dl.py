@@ -19,11 +19,11 @@ def get_book_from_argument(arg):
         return get_book_from_id(arg)
     # TODO: Check if it's a URL as well
 
-def download(arg_list, path, download_cover, create_metadata):
+def download(arg_list, gateway_list, path, download_cover, create_metadata):
     for argument in arg_list:
         book = get_book_from_argument(argument)
         if book:
-            book.download(path, output=True)
+            book.download_with_retry(path=path, gateway_list=gateway_list, output=True)
 
 def main():
     parser = argparse.ArgumentParser(prog='libgen-dl', description='Content downloader for libgen.')
@@ -64,6 +64,10 @@ def main():
     parser.add_argument("--create-metadata",
                         help="creates an OPF file containing information about the downloaded content",
                         action="store_true")
+    parser.add_argument("-g", "--gateway",
+                        help="specifies the gateway to use",
+                        nargs='+',
+                        default=["libgenlc"])
     parser.add_argument("-all", "--download-all",
                         help="download all content from the specified topic(s). At least one topic has to be specified.",
                         action='store_true')
@@ -87,7 +91,7 @@ def main():
         if args.download is not None:
             for result in results:
                 try:
-                    result.download(args.path, output=True)
+                    result.download_with_retry(path=args.path, gateway_list=args.gateway, output=True)
                 except requests.exceptions.HTTPError:
                     print(f"An error occured while downloading {result.title}. Skipped.")
     
@@ -116,9 +120,9 @@ def main():
             if book.topic:
                 print(f"Topic       :   {book.topic}")
     elif args.download and not (args.search):
-        download(args.id, path=args.path, download_cover=args.download_cover, create_metadata=args.create_metadata)
+        download(args.id, args.gateway, path=args.path, download_cover=args.download_cover, create_metadata=args.create_metadata)
     else:
-        download(args.id, path=args.path, download_cover=args.download_cover, create_metadata=args.create_metadata)
+        download(args.id, args.gateway, path=args.path, download_cover=args.download_cover, create_metadata=args.create_metadata)
 
 if __name__ == "__main__":
     main()

@@ -1,12 +1,13 @@
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse, parse_qs
-from exceptions import DownloadLinkNotFound, ChecksumMismatch
+from urllib.parse import urlparse, parse_qs, unquote
+from exceptions import DownloadLinkNotFound, ChecksumMismatch, GatewayDownloadFail
 import requests
 import hashlib
 import search
 import re
 import os
 import time
+import pyrfc6266
 
 topic_map = {
     "l": "libgen",
@@ -71,26 +72,45 @@ class Book:
             if url.netloc == "libgen.rocks" or url.netloc == "libgen.lc":
                 return parse_qs(url.query)["md5"][0]
 
-    def get_download_link(self):
+    def get_mirror(self, domains):
         for mirror in self.mirrors:
-            r = requests.get(mirror)
-            if r.ok:
-                soup = BeautifulSoup(r.content, 'lxml')
-                get_link = soup.find("a", string="GET")
-                if get_link:
-                    link = get_link.get("href")
-                    if not link.startswith("http"):
-                        link = "https://" + urlparse(mirror).netloc + '/' + link
-                    return link
+            if urlparse(mirror).netloc in domains:
+                return mirror
         return None
 
-    def download(self, path, verify=True, output=False):
-        download_link = self.get_download_link()
+    def get_download_link(self, gateway):
+        MIRROR_SOURCES = ["GET", "Cloudflare", "IPFS.io", "Crust", "Pinata"]
+        if gateway == "libgenlc":
+            mirror = self.get_mirror(["libgen.rocks", "libgen.lc"])
+        elif gateway in ["libgen", "cloudflare", "ipfs.io", "crust", "pinata"]:
+            mirror = self.get_mirror(["library.lol", "gen.lib.rus.ec"])
+        r = requests.get(mirror)
+        links = {"get": None, "cloudflare": None, "ipfs.io": None, "crust": None, "pinata": None}
+        if r.ok:
+            soup = BeautifulSoup(r.content, 'lxml')
+            for source in MIRROR_SOURCES:
+                link = soup.find("a", string=source)
+                if link:
+                    link = link.get("href")
+                    if not link.startswith("http"):
+                        link = "https://" + urlparse(mirror).netloc + '/' + link
+                    links[source.lower()] = link
+            if gateway in ["libgen", "libgenlc"]:
+                return links["get"]
+            else:
+                return links[gateway]
+
+
+
+    def download(self, path, verify=True, output=False, timeout=None, gateway="libgenlc"):
+        download_link = self.get_download_link(gateway)
         if download_link:
-            with requests.get(download_link, allow_redirects=True, stream=True) as r:
+            if output:
+                print(f"Using download link {download_link}")
+            with requests.get(download_link, allow_redirects=True, stream=True, timeout=timeout) as r:
                 r.raise_for_status()
                 content_disposition = r.headers["Content-Disposition"]
-                filename = re.findall("filename=(.+)", content_disposition)[0].replace('"', '')
+                filename = pyrfc6266.parse_filename(content_disposition)
                 filesize = int(r.headers["Content-Length"])
                 fullpath = os.path.join(path, filename)
 
@@ -125,15 +145,30 @@ class Book:
                             else:
                                 raise ChecksumMismatch(f"MD5 checksum mismatch with {fullpath}. Expected {self.md5}, instead got {fileSum}")
                     else:
-                        print("Download completed but could not be verified.")
+                        if output:
+                            print("Download completed but integrity could not be verified.")
                 else:
                     if output:
                         print("Download completed")
-
-
         else:
             raise DownloadLinkNotFound("Could not fetch download link. Perhaps libgen is down?")
 
+    def download_with_retry(self, gateway_list, output=False, *args, **kwargs):
+        if "timeout" not in kwargs:
+            kwargs["timeout"] = 10
+        downloadCompleted = False
+        gateway = 0
+        while not downloadCompleted:
+            try:
+                self.download(*args, **kwargs, output=output, gateway=gateway_list[gateway])
+                downloadCompleted = True
+            except requests.exceptions.Timeout:
+                if output:
+                    print(f"Gateway {gateway_list[gateway]} timed out. Retrying with another gateway.")
+                gateway += 1
+                if (gateway + 1) > len(gateway_list):
+                    raise GatewayDownloadFail("All specified gateways failed to respond")
+
 if __name__ == "__main__":
     book = get_book_from_id(142225964)
-    print(book.download(os.getcwd(), output=True))
+    print(book.get_download_link(gateway="ipfs.io"))
