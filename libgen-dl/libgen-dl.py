@@ -1,5 +1,6 @@
 import argparse
 import os
+import requests
 from tabulate import tabulate
 from book import get_book_from_id, get_book_from_md5
 from search import SearchRequest
@@ -16,7 +17,7 @@ def get_book_from_argument(arg):
         return get_book_from_md5(arg)
     elif arg.isdigit():
         return get_book_from_id(arg)
-    # TODO: Check if it's a URL as well.
+    # TODO: Check if it's a URL as well
 
 def download(arg_list, path, download_cover, create_metadata):
     for argument in arg_list:
@@ -84,8 +85,11 @@ def main():
                         headers=["ID", "Title", "Author(s)", "Publisher", "Year", "Language", "Size (MB)", "Format"]))
 
         if args.download is not None:
-            ## TODO: Download all results
-            pass
+            for result in results:
+                try:
+                    result.download(args.path, output=True)
+                except requests.exceptions.HTTPError:
+                    print(f"An error occured while downloading {result.title}. Skipped.")
     
     elif args.info:
         book = get_book_from_argument(args.info)
