@@ -9,6 +9,8 @@ import os
 import time
 import pyrfc6266
 
+MIRROR_SOURCES = ["GET", "Cloudflare", "IPFS.io", "Crust", "Pinata"]
+
 topic_map = {
     "l": "libgen",
     "c": "comics",
@@ -79,7 +81,6 @@ class Book:
         return None
 
     def get_download_link(self, gateway):
-        MIRROR_SOURCES = ["GET", "Cloudflare", "IPFS.io", "Crust", "Pinata"]
         if gateway == "libgenlc":
             mirror = self.get_mirror(["libgen.rocks", "libgen.lc"])
         elif gateway in ["libgen", "cloudflare", "ipfs.io", "crust", "pinata"]:
@@ -102,7 +103,28 @@ class Book:
         elif r.status_code == 404:
             raise FileNotFound(f"File could not be found through mirror {mirror}")
 
+    def verify_file(self, path):
+        with open(path, "rb") as f:
+            fileSum = hashlib.md5(f.read()).hexdigest().lower()
+            if fileSum == self.md5.lower():
+                return True
+            else:
+                raise ChecksumMismatch(f"MD5 checksum mismatch with {path}. Expected {self.md5}, instead got {fileSum}")
 
+    def download_cover(self, path):
+        if not self.cover:
+            r = requests.get(self.get_mirror(["library.lol", "gen.lib.rus.ec"]))
+            if r.ok:
+                soup = BeautifulSoup(r.content, 'lxml')
+                cover = soup.find("img").get("src")
+                if not cover.startswith("http"):
+                    self.cover = "http://" + urlparse(r.url).netloc + soup.find("img").get("src")
+                else:
+                    self.cover = cover
+        if self.cover:
+            r = requests.get(self.cover)
+            with open(path, "wb") as f:
+                f.write(r.content)
 
     def download(self, path, verify=True, output=False, timeout=None, gateway="libgenlc"):
         download_link = self.get_download_link(gateway)
@@ -128,7 +150,7 @@ class Book:
                             seconds_elapsed = time.time() - timeStarted
                             if seconds_elapsed != 0:
                                 megabytes_per_second = round((bytesDownloaded / seconds_elapsed) / 1e+6, 2)
-                                print(f"Downloading {filename} ({str(percent_downloaded)}%) ({str(megabytes_per_second)} MB/s)", end='\r')
+                                print(f"Downloading {filename} ({str(percent_downloaded)}%) ({str(megabytes_per_second)} MB/s) (gateway={gateway})", end='\r')
                             else:
                                 print(f"Downloading {filename} ({str(percent_downloaded)}%)", end='\r')
 
@@ -138,20 +160,18 @@ class Book:
                 if verify:
                     if self.md5:
                         if output:
-                            print(f"Verifying {fullpath}...")
-                        with open(fullpath, "rb") as f:
-                            fileSum = hashlib.md5(f.read()).hexdigest().lower()
-                            if fileSum == self.md5.lower():
-                                if output:
-                                    print("Verified. Download completed.")
-                            else:
-                                raise ChecksumMismatch(f"MD5 checksum mismatch with {fullpath}. Expected {self.md5}, instead got {fileSum}")
+                            print(f"Verifying {fullpath}")
+                        if self.verify_file(fullpath):
+                            if output:
+                                print("Verification successful. Download complete.")
                     else:
                         if output:
-                            print("Download completed but integrity could not be verified.")
+                            print("Download completed but file integrity could not be verified.")
                 else:
                     if output:
                         print("Download completed")
+
+                return fullpath
         else:
             raise DownloadLinkNotFound("Could not fetch download link. Perhaps libgen is down?")
 
@@ -160,11 +180,12 @@ class Book:
             kwargs["timeout"] = 10
         downloadCompleted = False
         gateway = 0
-        while not downloadCompleted:
+        while True:
             try:
-                self.download(*args, **kwargs, output=output, gateway=gateway_list[gateway])
-                downloadCompleted = True
-            except requests.exceptions.Timeout:
+                path = self.download(*args, **kwargs, output=output, gateway=gateway_list[gateway])
+                if path:
+                    return path
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
                 if output:
                     print(f"Gateway {gateway_list[gateway]} failed. Retrying with another gateway.")
                 gateway += 1
@@ -172,5 +193,5 @@ class Book:
                     raise GatewayDownloadFail("All specified gateways failed to respond")
 
 if __name__ == "__main__":
-    book = get_book_from_id(142225964)
-    print(book.get_download_link(gateway="ipfs.io"))
+    book = get_book_from_id(5240666)
+    book.download_cover("cover.jpg")

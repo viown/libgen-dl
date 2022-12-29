@@ -25,7 +25,9 @@ def download(arg_list, gateway_list, path, download_cover, create_metadata):
         book = get_book_from_argument(argument)
         if book:
             try:
-                book.download_with_retry(path=path, gateway_list=gateway_list, output=True)
+                path = book.download_with_retry(path=path, gateway_list=gateway_list, output=True)
+                if download_cover:
+                    book.download_cover(os.path.splitext(path)[0] + ".jpg")
             except requests.exceptions.HTTPError:
                 print("An HTTP error occured while downloading. Try again with a different --gateway.")
             except FileNotFound:
@@ -51,6 +53,9 @@ def main():
     parser.add_argument("-s", "--search",
                         help="searches libgen from the given query",
                         nargs='+')
+    parser.add_argument("-pg", "--page",
+                        help="specify the page number when searching",
+                        default="1")
     parser.add_argument("-f", "--filter",
                         help="filter by title, author, series, year, publisher or ISBN when searching. Default is title + author.",
                         default=["title", "author"], choices=["title", "author", "series", "year", "publisher", "isbn"],
@@ -75,7 +80,7 @@ def main():
     parser.add_argument("-g", "--gateway",
                         help="specifies the gateway to use",
                         nargs='+',
-                        default=["libgenlc"])
+                        default=["libgenlc"], choices=["libgen", "libgenlc", "cloudflare", "ipfs.io", "crust", "pinata"])
     parser.add_argument("-all", "--download-all",
                         help="download all content from the specified topic(s). At least one topic has to be specified.",
                         action='store_true')
@@ -91,7 +96,7 @@ def main():
     if args.search:
         query = ' '.join(args.search)
         request = SearchRequest(query=query, filters=args.filter, topics=args.topic,
-                                language=args.language, ext=args.ext)
+                                language=args.language, ext=args.ext, page=int(args.page))
         results = request.get_results()
         print(tabulate([[result.edition_id, truncate(result.title, 35), result.author, truncate(result.publisher, 45), result.year, result.lang, result.size, result.format] for result in results],
                         headers=["ID", "Title", "Author(s)", "Publisher", "Year", "Language", "Size (MB)", "Format"]))
@@ -99,7 +104,9 @@ def main():
         if args.download is not None:
             for result in results:
                 try:
-                    result.download_with_retry(path=args.path, gateway_list=args.gateway, output=True)
+                    path = result.download_with_retry(path=args.path, gateway_list=args.gateway, output=True)
+                    if args.download_cover:
+                        result.download_cover(os.path.splitext(path)[0] + ".jpg")
                 except requests.exceptions.HTTPError:
                     print(f"An error occured while downloading {result.title}. Skipped.")
                 except FileNotFound:
@@ -131,9 +138,7 @@ def main():
                 print(f"MD5         :   {book.md5}")
             if book.topic:
                 print(f"Topic       :   {book.topic}")
-    elif args.download and not (args.search):
-        download(args.id, args.gateway, path=args.path, download_cover=args.download_cover, create_metadata=args.create_metadata)
-    else:
+    elif (args.download and not (args.search)) or args.id:
         download(args.id, args.gateway, path=args.path, download_cover=args.download_cover, create_metadata=args.create_metadata)
 
 if __name__ == "__main__":

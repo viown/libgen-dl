@@ -36,11 +36,12 @@ Information about a specific book can be fetched using `--info`
 
     python libgen-dl.py --info [ID, MD5 or URL]
 # Gateway
-A gateway can be specified using the `--gateway` option. Available gateways are: `libgen`, `libgenlc`, `cloudflare`, `ipfsio`, `crust`, `pinata`
+A gateway can be specified using the `--gateway` option. Available gateways are: `libgen`, `libgenlc`, `cloudflare`, `ipfs.io`, `crust`, `pinata`
 Alternative gateways can be specified as well. For example:
 
-    python libgen-dl.py [items...] --gateway cloudflare ipfsio libgen
-In this example, libgen-dl will first try downloading through the Cloudflare IPFS. If the download fails, it'll retry again with `ipfsio`.  If that happens to fail as well, it'll finally try downloading directly from `gen.lib.rus.ec`.
+    python libgen-dl.py [items...] --gateway cloudflare ipfs.io libgen
+In this example, libgen-dl will first try downloading through the Cloudflare IPFS. If the download fails, it'll retry again with `ipfs.io`.  If that happens to fail as well, it'll finally try downloading directly from `gen.lib.rus.ec`.
+
 When downloading books in bulk, it's recommended to have multiple gateways lined up just in case.
 # Download all content
 libgen-dl supports downloading all content from specific topic(s).
