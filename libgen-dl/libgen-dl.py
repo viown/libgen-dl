@@ -47,7 +47,7 @@ def main():
                         version="v"+__version__)
     parser.add_argument("-d", "--download",
                         help="downloads one or multiple items given the ID, MD5 or URL. Can also be used alongside --search to download all results",
-                        nargs="*")
+                        action='store_true')
     parser.add_argument("-i", "--info",
                         help="displays content information from the given ID, MD5 or URL")
     parser.add_argument("-s", "--search",
