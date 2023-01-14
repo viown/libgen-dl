@@ -12,7 +12,7 @@ Searching libgen can be done like so:
 By default, the `libgen` topic will be searched.
 A different topic can be specified using `--topic`
 
-    python libgen-dl.py --search The Deep - Nick Cutter --topic fiction
+    python libgen-dl.py --search "The Deep - Nick Cutter" --topic fiction
 Multiple topics can be specified by separating them with spaces.
 The currently supported topics are:
 
@@ -30,7 +30,7 @@ It's also possible to filter by language or format using `--language` and `--ext
 Results from a search can be downloaded using the `-d` or `--download` flag.
 Example:
 
-    python libgen-dl.py -d --search The Dark Tower --filter series
+    python libgen-dl.py -d --search "The Dark Tower" --filter series
 # Info
 Information about a specific book can be fetched using `--info`
 
